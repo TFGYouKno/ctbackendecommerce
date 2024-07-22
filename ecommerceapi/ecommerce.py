@@ -41,7 +41,7 @@ class Customer(Base):
     address: Mapped[str] = mapped_column(db.String(150))
 
     #create a one-to-many relationship between customer and orders
-    orders: Mapped[List['Orders']] = db.relationship("Orders", back_populates='customer') #back populates ensures both ends of this relationship have access to this information
+    orders: Mapped[List['Orders']] = db.relationship(back_populates='customer') #back populates ensures both ends of this relationship have access to this information
 
 order_products = db.Table(
     'order_products',
@@ -55,7 +55,7 @@ class Orders(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     order_date: Mapped[date] = mapped_column(db.Date, nullable=False)
-    customer_id: Mapped[int] = mapped_column(db.ForeignKey('Customer.id'))
+    customer_id: Mapped[int] = mapped_column(db.ForeignKey('customer.id'))
     
     #create a many-to-one relationship between orders and customer
     customer: Mapped['Customer'] = db.relationship(back_populates='orders')
@@ -122,7 +122,7 @@ def get_customers():
     result = db.session.execute(query).scalars()#executes query and converts each row object into scalar object (python usable object)
     customers = result.all()
 
-    return customer_schema.jsonify(customers)
+    return customers_schema.jsonify(customers)
 
 
 # get a single customer, dynamic route by ID
@@ -197,6 +197,15 @@ def add_product():
 
     return jsonify({'message': 'New product added successfully!'}), 201
 
+    #get all products
+@app.route('/products', methods=['GET'])
+def get_products():
+    query = select(Products)
+    result = db.session.execute(query).scalars()#executes query and converts each row object into scalar object (python usable object)
+    products = result.all()
+
+    return products_schema.jsonify(products)
+
 #get a product by ID
 @app.route('/products/<int:id>', methods = ['GET'])
 def get_product(id):
@@ -247,11 +256,16 @@ def order_items(id):
     return products_schema.jsonify(order.products)
 
 #remove an order by order ID
-@app.route("/order/<int:id>", methods=['DELETE'])
+@app.route("/orders/<int:id>", methods=['DELETE'])
 def remove_order(id):
-    query = delete(Orders).filter(Orders.id == id)
-    order = db.session.execute(query).scalar()
-    return products_schema.jsonify(order.products)
+    query = delete(Orders).where(Orders.id == id)
+    result = db.session.execute(query)
+
+    if result.rowcount == 0:
+        return jsonify({'Error': 'Order not found'}), 404
+    
+    db.session.commit()
+    return jsonify({'message': 'Order successfully removed!'}), 200
 
 
 if __name__ == '__main__':
