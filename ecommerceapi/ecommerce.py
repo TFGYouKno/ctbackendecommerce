@@ -216,6 +216,26 @@ def get_product(id):
     
     return product_schema.jsonify(result)
 
+# update a product by ID (PUT)
+@app.route('/products/<int:id>', methods=['PUT'])
+def update_product(id):
+    query = select(Products).where(Products.id == id)
+    result = db.session.execute(query).scalars().first()
+    if result is None:
+        return jsonify({'Error': 'Product not found'}), 404
+    
+    product = result
+    try:
+        product_data = product_schema.load(request.json)
+    except ValidationError as e:
+        return jsonify(e.messages), 400
+    
+    for field, value in product_data.items():
+        setattr(product, field, value)
+
+    db.session.commit()
+    return jsonify({'message': 'Product details updated successfully!'}), 200
+
 #remove a product by ID
 @app.route('/products/<int:id>', methods=['DELETE'])
 def remove_product(id):
